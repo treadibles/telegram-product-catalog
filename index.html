@@ -295,12 +295,11 @@
 
         function updateCart() {
             if (cart.length > 0) {
-                const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
-                tg.MainButton.setText(`View Cart (${totalItems})`);
-                tg.MainButton.show();
-                tg.MainButton.enable();
+                const total = cart.reduce((sum, i) => sum + i.quantity, 0);
+                tg.MainButton.setText(`View Cart (${total})`);
+                tg.MainButton.setParams({ is_visible: true, is_active: true });
             } else {
-                tg.MainButton.hide();
+                tg.MainButton.setParams({ is_visible: false, is_active: false });
             }
         }
 
