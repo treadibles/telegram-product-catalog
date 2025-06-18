@@ -6,6 +6,7 @@
     <title>Product Catalog</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --tg-theme-bg-color: #ffffff;
@@ -84,10 +85,39 @@
                 </div>
             </div>
         </div>
+
+        <!-- Payment Modal -->
+        <div id="payment-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden" onclick="closePaymentModal()">
+          <div class="modal-content w-11/12 md:w-1/2 lg:w-1/3 rounded-lg shadow-lg p-6 bg-white" onclick="event.stopPropagation()">
+            <h2 class="text-2xl font-bold mb-4">Complete Payment</h2>
+            <p>Send <span id="pay-btc-amount"></span> BTC (~$<span id="pay-usd-amount"></span>) to:</p>
+            <p id="btc-address" class="break-all mb-4"></p>
+            <div id="qrcode" class="mb-4"></div>
+            <p class="text-sm text-gray-500">Once sent, wait for transaction detection.</p>
+          </div>
+        </div>
+
+        <!-- Shipping Modal -->
+        <div id="shipping-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden" onclick="closeShippingModal()">
+          <div class="modal-content w-11/12 md:w-1/2 lg:w-1/3 rounded-lg shadow-lg p-6 bg-white" onclick="event.stopPropagation()">
+            <h2 class="text-2xl font-bold mb-4">Shipping Information</h2>
+            <form id="shipping-form" class="space-y-4">
+              <input name="name" type="text" required placeholder="Full Name" class="w-full border p-2 rounded">
+              <input name="line1" type="text" required placeholder="Address Line 1" class="w-full border p-2 rounded">
+              <input name="line2" type="text" placeholder="Address Line 2" class="w-full border p-2 rounded">
+              <input name="zip" type="text" required placeholder="ZIP Code" class="w-full border p-2 rounded">
+              <button type="submit" class="btn-primary w-full py-2 rounded-lg font-semibold">Submit Order</button>
+            </form>
+          </div>
+        </div>
     </div>
 
     <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Payment and webhook config
+        const SHEETS_WEBHOOK_URL = 'https://your-google-sheets-webhook-url'; // replace with your Google Sheets webhook
+        let paymentData = {}, txInterval, confirmInterval;
+
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
@@ -115,14 +145,7 @@
             const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
             document.getElementById('cart-total').innerText = `Total: $${total.toFixed(2)}`;
             document.getElementById('checkout-btn').onclick = () => {
-                const cartData = cart.map(item => ({
-                    id: item.id,
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.price
-                }));
-                tg.sendData(JSON.stringify({ cart: cartData }));
-                tg.close();
+                startPayment();
             };
             document.getElementById('cart-modal').classList.remove('hidden');
         }
@@ -130,6 +153,101 @@
         window.closeCartModal = function() {
             document.getElementById('cart-modal').classList.add('hidden');
         };
+
+        // --- Payment and Shipping Logic ---
+        async function startPayment() {
+            closeCartModal();
+            // calculate amounts
+            const usd = cart.reduce((s,i)=>s + i.price * i.quantity, 0).toFixed(2);
+            const rateRes = await fetch('https://www.bitstamp.net/api/v2/ticker/btcusd/');
+            const rateJson = await rateRes.json();
+            const rate = parseFloat(rateJson.last);
+            const btcAmount = (usd / rate).toFixed(8);
+            // pick address
+            const addrRes = await fetch('./addresses.json');
+            const addrJson = await addrRes.json();
+            const addrs = addrJson.addresses;
+            const address = addrs[Math.floor(Math.random()*addrs.length)];
+            paymentData = { usd, btcAmount, address };
+            // show payment modal
+            document.getElementById('pay-usd-amount').innerText = usd;
+            document.getElementById('pay-btc-amount').innerText = btcAmount;
+            document.getElementById('btc-address').innerText = address;
+            document.getElementById('qrcode').innerHTML = '';
+            new QRCode(document.getElementById('qrcode'), address);
+            document.getElementById('payment-modal').classList.remove('hidden');
+            // start polling for transaction
+            txInterval = setInterval(pollForTx, 30000);
+        }
+
+        function pollForTx() {
+            fetch(`https://blockstream.info/api/address/${paymentData.address}/txs`)
+              .then(res=>res.json())
+              .then(txs=>{
+                const match = txs.find(tx=>{
+                  const outs = tx.vout;
+                  const minSats = Math.floor(paymentData.btcAmount * 1e8);
+                  return outs.some(o=>o.scriptpubkey_address === paymentData.address && o.value >= minSats);
+                });
+                if (match) {
+                  paymentData.txid = match.txid;
+                  clearInterval(txInterval);
+                  startConfirmationPolling();
+                }
+              }).catch(console.error);
+        }
+
+        function startConfirmationPolling() {
+            confirmInterval = setInterval(() => {
+                fetch(`https://blockstream.info/api/tx/${paymentData.txid}/status`)
+                  .then(res=>res.json())
+                  .then(status=>{
+                    if (status.confirmed) {
+                      clearInterval(confirmInterval);
+                      openShippingModal();
+                    }
+                  }).catch(console.error);
+            }, 60000);
+        }
+
+        function openShippingModal() {
+            document.getElementById('payment-modal').classList.add('hidden');
+            document.getElementById('shipping-modal').classList.remove('hidden');
+        }
+
+        function closePaymentModal() {
+            document.getElementById('payment-modal').classList.add('hidden');
+        }
+
+        window.closeShippingModal = function() {
+            document.getElementById('shipping-modal').classList.add('hidden');
+        };
+
+        document.getElementById('shipping-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const data = {
+                orderDate: new Date().toISOString(),
+                fiatUSD: paymentData.usd,
+                btcAmount: paymentData.btcAmount,
+                txid: paymentData.txid,
+                receivingAddress: paymentData.address,
+                orderContents: cart.map(i=>`${i.name} x${i.quantity}`).join('; '),
+                shippingName: form.name.value,
+                shippingLine1: form.line1.value,
+                shippingLine2: form.line2.value,
+                shippingZip: form.zip.value
+            };
+            // send to Google Sheets
+            await fetch(SHEETS_WEBHOOK_URL, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(data)
+            });
+            // finally close the web app
+            tg.sendData(JSON.stringify(data));
+            tg.close();
+        });
 
         async function loadData() {
             try {
