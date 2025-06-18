@@ -144,9 +144,7 @@
             });
             const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
             document.getElementById('cart-total').innerText = `Total: $${total.toFixed(2)}`;
-            document.getElementById('checkout-btn').onclick = () => {
-                startPayment();
-            };
+            document.getElementById('checkout-btn').onclick = window.startPayment;
             document.getElementById('cart-modal').classList.remove('hidden');
         }
 
@@ -155,29 +153,37 @@
         };
 
         // --- Payment and Shipping Logic ---
-        async function startPayment() {
-            closeCartModal();
-            // calculate amounts
-            const usd = cart.reduce((s,i)=>s + i.price * i.quantity, 0).toFixed(2);
-            const rateRes = await fetch('https://www.bitstamp.net/api/v2/ticker/btcusd/');
-            const rateJson = await rateRes.json();
-            const rate = parseFloat(rateJson.last);
-            const btcAmount = (usd / rate).toFixed(8);
-            // pick address
-            const addrRes = await fetch('./addresses.json');
-            const addrJson = await addrRes.json();
-            const addrs = addrJson.addresses;
-            const address = addrs[Math.floor(Math.random()*addrs.length)];
-            paymentData = { usd, btcAmount, address };
-            // show payment modal
-            document.getElementById('pay-usd-amount').innerText = usd;
-            document.getElementById('pay-btc-amount').innerText = btcAmount;
-            document.getElementById('btc-address').innerText = address;
-            document.getElementById('qrcode').innerHTML = '';
-            new QRCode(document.getElementById('qrcode'), address);
+        window.startPayment = async function() {
+            // show payment modal immediately
             document.getElementById('payment-modal').classList.remove('hidden');
-            // start polling for transaction
-            txInterval = setInterval(pollForTx, 30000);
+            try {
+                closeCartModal();
+                // calculate amounts
+                const usd = cart.reduce((s,i)=>s + i.price * i.quantity, 0).toFixed(2);
+                const rateRes = await fetch('https://www.bitstamp.net/api/v2/ticker/btcusd/');
+                const rateJson = await rateRes.json();
+                const rate = parseFloat(rateJson.last);
+                const btcAmount = (usd / rate).toFixed(8);
+                // pick address
+                const addrRes = await fetch('./addresses.json');
+                const addrJson = await addrRes.json();
+                const addrs = addrJson.addresses;
+                const address = addrs[Math.floor(Math.random()*addrs.length)];
+                paymentData = { usd, btcAmount, address };
+                // show payment modal
+                document.getElementById('pay-usd-amount').innerText = usd;
+                document.getElementById('pay-btc-amount').innerText = btcAmount;
+                document.getElementById('btc-address').innerText = address;
+                document.getElementById('qrcode').innerHTML = '';
+                new QRCode(document.getElementById('qrcode'), address);
+                // (modal is already shown above)
+                // start polling for transaction
+                txInterval = setInterval(pollForTx, 30000);
+            } catch (err) {
+                console.error('Payment init error:', err);
+                alert('Failed to initialize payment. Please try again.');
+                document.getElementById('payment-modal').classList.add('hidden');
+            }
         }
 
         function pollForTx() {
