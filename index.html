@@ -178,7 +178,13 @@
                 document.getElementById('pay-btc-amount').innerText = btcAmount;
                 document.getElementById('btc-address').innerText = address;
                 const qrContainer = document.getElementById('qrcode');
-                qrContainer.innerHTML = `<img src="https://api.blockchain.info/qr?address=${encodeURIComponent(address)}&size=200" alt="QR Code" />`;
+                if (address.toLowerCase().startsWith('bc1')) {
+                    // SegWit (bech32) fallback to Google Charts QR API
+                    qrContainer.innerHTML = `<img src="https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(address)}" alt="QR Code" />`;
+                } else {
+                    // Legacy or P2SH address via Blockchain.info
+                    qrContainer.innerHTML = `<img src="https://api.blockchain.info/qrcode?size=200&data=${encodeURIComponent(address)}" alt="QR Code" />`;
+                }
                 document.getElementById('payment-modal').classList.remove('hidden');
                 // start polling for transaction
                 txInterval = setInterval(pollForTx, 30000);
