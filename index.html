@@ -158,10 +158,16 @@
                 closeCartModal();
                 // calculate amounts
                 const usd = cart.reduce((s,i)=>s + i.price * i.quantity, 0).toFixed(2);
-                const rateRes = await fetch('https://www.bitstamp.net/api/v2/ticker/btcusd/');
+                // Use CoinGecko API for BTC/USD rate
+                const rateRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
                 const rateJson = await rateRes.json();
-                const rate = parseFloat(rateJson.last);
+                const rate = rateJson.bitcoin.usd;
+                if (!rate) throw new Error('Unable to fetch BTC price');
                 const btcAmount = (usd / rate).toFixed(8);
+                // Ensure addresses.json is served via HTTP(S)
+                if (location.protocol === 'file:') {
+                    throw new Error('Must serve via HTTP/HTTPS, not file://');
+                }
                 // pick address
                 const addrRes = await fetch('./addresses.json');
                 const addrJson = await addrRes.json();
