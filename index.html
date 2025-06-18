@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Catalog</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-button-color: #2481cc;
+            --tg-theme-button-text-color: #ffffff;
+        }
+        body {
+            background-color: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        .btn-primary { 
+            background-color: var(--tg-theme-button-color, #2481cc); 
+            color: var(--tg-theme-button-text-color, #fff); 
+        }
+        .category-btn {
+            color: #1f2937; /* text-gray-800 */
+            background-color: #f3f4f6; /* bg-gray-100 */
+            border-color: #d1d5db; /* border-gray-300 */
+        }
+        .category-btn.active {
+            color: #ffffff;
+            background-color: var(--tg-theme-button-color, #2481cc);
+            border-color: var(--tg-theme-button-color, #2481cc);
+        }
+        .modal, .admin-modal { transition: opacity 0.25s ease; }
+        .category-carousel::-webkit-scrollbar { display: none; }
+        .category-carousel { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div id="app" class="container mx-auto p-4">
+        <header class="text-center mb-4">
+            <h1 id="main-header" class="text-3xl font-bold cursor-pointer">Our Catalog</h1>
+            <p class="text-lg" style="color: var(--tg-theme-hint-color, #999);">Browse our latest products</p>
+        </header>
+        <div id="category-section" class="mb-6">
+            <h2 class="text-xl font-bold mb-3">Categories</h2>
+            <div id="category-carousel" class="category-carousel flex items-center gap-3 overflow-x-auto pb-3"></div>
+        </div>
+        <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+        <div id="product-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden" onclick="closeModal('product-modal')">
+             <div class="modal-content w-11/12 md:w-1/2 lg:w-1/3 rounded-lg shadow-lg relative p-6" style="background-color: var(--tg-theme-bg-color, #fff);" onclick="event.stopPropagation()">
+                <div id="modal-slider" class="relative w-full h-64 mb-4 overflow-hidden rounded-md bg-gray-200">
+                    <div id="slider-media-container" class="flex h-full" style="transition: transform 0.3s ease-in-out;"></div>
+                    <button id="prevBtn" class="absolute top-1/2 left-2 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-2 focus:outline-none z-10">&lt;</button>
+                    <button id="nextBtn" class="absolute top-1/2 right-2 transform -translate-y-1/2 bg-white bg-opacity-50 rounded-full p-2 focus:outline-none z-10">&gt;</button>
+                </div>
+                <h2 id="modal-title" class="text-2xl font-bold mb-2"></h2>
+                <p id="modal-description" class="mb-4" style="color: var(--tg-theme-hint-color);"></p>
+                <p id="modal-price" class="text-xl font-semibold mb-4"></p>
+                <button id="modal-add-to-cart" class="btn-primary w-full py-2 rounded-lg font-semibold">Add to Cart</button>
+            </div>
+        </div>
+        <div id="admin-modal" class="admin-modal fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center hidden" onclick="closeModal('admin-modal')">
+            <div class="modal-content w-11/12 md:w-1/2 lg:w-1/3 rounded-lg shadow-lg p-6" style="background-color: var(--tg-theme-bg-color, #fff);" onclick="event.stopPropagation()">
+                <h2 class="text-2xl font-bold mb-6 text-center">Admin Panel</h2>
+                <div class="space-y-4">
+                    <button class="w-full py-3 rounded-lg font-semibold" style="background-color: #e5e7eb; color: #1f2937;">Manage Products</button>
+                    <button class="w-full py-3 rounded-lg font-semibold" style="background-color: #e5e7eb; color: #1f2937;">View Orders</button>
+                </div>
+                <button onclick="closeModal('admin-modal')" class="w-full mt-6 py-2 bg-red-500 text-white rounded-lg font-semibold">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        tg.MainButton.onClick(() => {
+            if (cart.length > 0) {
+                const cartData = cart.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price }));
+                tg.sendData(JSON.stringify({ cart: cartData }));
+                tg.close();
+            }
+        });
+
+        let allProducts = [], allCategories = [], cart = [], currentProduct = null, currentMediaIndex = 0;
+        const productGrid = document.getElementById('product-grid');
+        const productModal = document.getElementById('product-modal');
+        const adminModal = document.getElementById('admin-modal');
+
+        async function loadData() {
+            try {
+                const response = await fetch('./products.json');
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                const data = await response.json();
+                allProducts = data.products;
+                allCategories = data.categories;
+                renderCategories();
+                filterProducts('all');
+                setupAdminAccess();
+            } catch (error) {
+                console.error('Failed to load catalog data:', error);
+                productGrid.innerHTML = `<p class="col-span-full text-center text-red-500">Failed to load products. Check file path and JSON format.</p>`;
+            }
+        }
+        
+        function renderCategories() {
+            const carousel = document.getElementById('category-carousel');
+            carousel.innerHTML = '';
+            allCategories.forEach(category => {
+                const btn = document.createElement('button');
+                btn.className = 'category-btn whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold border-2';
+                btn.dataset.categoryId = category.id;
+                btn.innerText = category.name;
+                btn.onclick = () => filterProducts(category.id);
+                carousel.appendChild(btn);
+            });
+            if (carousel.firstChild) carousel.firstChild.classList.add('active');
+        }
+
+        window.filterProducts = (categoryId) => {
+            const productsToRender = categoryId === 'all' ? allProducts : allProducts.filter(p => p.categoryId === categoryId);
+            renderProducts(productsToRender);
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.categoryId === categoryId) btn.classList.add('active');
+            });
+        };
+
+        function renderProducts(products) {
+            productGrid.innerHTML = '';
+            if (products.length === 0) {
+                productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">No products in this category.</p>`;
+                return;
+            }
+            products.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'rounded-lg shadow-md overflow-hidden cursor-pointer flex flex-col';
+                const firstMedia = product.media[0];
+                const isVideo = firstMedia.type === 'video';
+                card.innerHTML = `
+                    <div class="relative w-full h-48 bg-gray-200">
+                        <img src="${isVideo ? '' : firstMedia.src}" alt="${product.name}" class="w-full h-full object-cover ${isVideo ? 'hidden' : ''}">
+                        <video src="${isVideo ? firstMedia.src : ''}" class="w-full h-full object-cover ${isVideo ? '' : 'hidden'}" muted loop playsinline></video>
+                        ${isVideo ? '<div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs rounded-full px-2 py-1">VIDEO</div>' : ''}
+                    </div>
+                    <div class="p-4 bg-white flex-grow">
+                        <h3 class="font-bold text-lg truncate">${product.name}</h3>
+                        <p class="font-semibold mt-2">$${product.price.toFixed(2)}</p>
+                    </div>
+                `;
+                card.addEventListener('click', () => openProductModal(product));
+                productGrid.appendChild(card);
+            });
+        }
+
+        function openProductModal(product) {
+            currentProduct = product;
+            document.getElementById('modal-title').innerText = product.name;
+            document.getElementById('modal-description').innerText = product.description;
+            document.getElementById('modal-price').innerText = `$${product.price.toFixed(2)}`;
+            const sliderContainer = document.getElementById('slider-media-container');
+            sliderContainer.innerHTML = '';
+            product.media.forEach(mediaItem => {
+                let element;
+                if (mediaItem.type === 'image') {
+                    element = document.createElement('img');
+                } else if (mediaItem.type === 'video') {
+                    element = document.createElement('video');
+                    element.loop = true;
+                    element.muted = true;
+                    element.playsInline = true;
+                    element.controls = true;
+                }
+                element.src = mediaItem.src;
+                element.className = 'w-full h-full object-cover flex-shrink-0';
+                sliderContainer.appendChild(element);
+            });
+            currentMediaIndex = 0;
+            updateSlider();
+            document.getElementById('prevBtn').style.display = product.media.length > 1 ? 'block' : 'none';
+            document.getElementById('nextBtn').style.display = product.media.length > 1 ? 'block' : 'none';
+            productModal.classList.remove('hidden');
+        }
+
+        window.closeModal = (modalId) => {
+            const modalToClose = document.getElementById(modalId);
+            if (modalToClose) {
+                modalToClose.classList.add('hidden');
+                if (modalId === 'product-modal') {
+                    modalToClose.querySelectorAll('video').forEach(video => video.pause());
+                }
+            }
+        };
+        
+        function updateSlider() {
+            const sliderContainer = document.getElementById('slider-media-container');
+            if(sliderContainer) {
+                sliderContainer.style.transform = `translateX(-${currentMediaIndex * 100}%)`;
+                const mediaElements = sliderContainer.children;
+                for (let i = 0; i < mediaElements.length; i++) {
+                    const el = mediaElements[i];
+                    if (el.tagName === 'VIDEO') {
+                        el.pause();
+                        if (i === currentMediaIndex) {
+                            el.play().catch(e => {});
+                        }
+                    }
+                }
+            }
+        }
+        
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            currentMediaIndex = (currentMediaIndex > 0) ? currentMediaIndex - 1 : currentProduct.media.length - 1;
+            updateSlider();
+        });
+
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            currentMediaIndex = (currentMediaIndex < currentProduct.media.length - 1) ? currentMediaIndex + 1 : 0;
+            updateSlider();
+        });
+
+        function setupAdminAccess() {
+            const header = document.getElementById('main-header');
+            let clickCount = 0;
+            let clickTimer = null;
+            header.addEventListener('click', () => {
+                clickCount++;
+                if (clickTimer) clearTimeout(clickTimer);
+                clickTimer = setTimeout(() => { clickCount = 0; }, 1500);
+                if (clickCount === 5) {
+                    clickCount = 0;
+                    adminModal.classList.remove('hidden');
+                }
+            });
+        }
+
+        document.getElementById('modal-add-to-cart').addEventListener('click', () => {
+            addToCart(currentProduct);
+            closeModal('product-modal');
+        });
+
+        function addToCart(product) {
+            const existingProduct = cart.find(item => item.id === product.id);
+            if (existingProduct) {
+                existingProduct.quantity++;
+            } else {
+                cart.push({ ...product, quantity: 1 });
+            }
+            updateCart();
+        }
+
+        function updateCart() {
+            if (cart.length > 0) {
+                const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+                tg.MainButton.setText(`View Cart (${totalItems})`);
+                tg.MainButton.show();
+                tg.MainButton.enable();
+            } else {
+                tg.MainButton.hide();
+            }
+        }
+
+        loadData();
+    });
+    </script>
+</body>
+</html>

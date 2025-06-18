@@ -1,0 +1,75 @@
+{
+  "categories": [
+    { "id": "all", "name": "All" },
+    { "id": "apparel", "name": "Apparel" },
+    { "id": "electronics", "name": "Electronics" },
+    { "id": "home", "name": "Home Goods" },
+    { "id": "accessories", "name": "Accessories" }
+  ],
+  "products": [
+    {
+      "id": 101,
+      "categoryId": "apparel",
+      "name": "Urban Explorer Jacket",
+      "description": "A stylish and waterproof jacket, perfect for city life and outdoor adventures. Features multiple pockets and a breathable inner lining.",
+      "price": 149.99,
+      "media": [
+        { "type": "image", "src": "https://images.unsplash.com/photo-1551028719-00167b16eac5?q=80&w=1935&auto=format&fit=crop" },
+        { "type": "video", "src": "https://videos.pexels.com/video-files/3209828/3209828-hd_1280_720_25fps.mp4" },
+        { "type": "image", "src": "https://images.unsplash.com/photo-1591902647263-3882d72644d6?q=80&w=1974&auto=format&fit=crop" }
+      ]
+    },
+    {
+      "id": 102,
+      "categoryId": "electronics",
+      "name": "Wireless Noise-Cancelling Headphones",
+      "description": "Immerse yourself in sound with these high-fidelity headphones. 30-hour battery life and crystal-clear microphone.",
+      "price": 275.00,
+      "media": [
+        { "type": "image", "src": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=2070&auto=format&fit=crop" },
+        { "type": "image", "src": "https://images.unsplash.com/photo-1546435770-a3e426bf4022?q=80&w=2065&auto=format&fit=crop" }
+      ]
+    },
+    {
+      "id": 103,
+      "categoryId": "home",
+      "name": "Artisan Ceramic Mug",
+      "description": "Hand-crafted ceramic mug with a unique glaze finish. Perfect for your morning coffee or tea. Holds 12oz.",
+      "price": 25.50,
+      "media": [
+        { "type": "image", "src": "https://images.unsplash.com/photo-1514725368532-156271aa2544?q=80&w=1974&auto=format&fit=crop" }
+      ]
+    },
+    {
+      "id": 104,
+      "categoryId": "accessories",
+      "name": "Minimalist Leather Wallet",
+      "description": "A slim, minimalist wallet made from full-grain leather. Holds up to 8 cards and cash without the bulk.",
+      "price": 49.99,
+      "media": [
+        { "type": "image", "src": "https://images.unsplash.com/photo-1620625515032-6ed2a143c3f2?q=80&w=2070&auto=format&fit=crop" },
+        { "type": "image", "src": "https://images.unsplash.com/photo-1619118399587-9dc14b451368?q=80&w=1974&auto=format&fit=crop" }
+      ]
+    },
+    {
+        "id": 105,
+        "categoryId": "apparel",
+        "name": "Organic Cotton T-Shirt",
+        "description": "A classic crewneck t-shirt made from 100% organic cotton. Soft, breathable, and ethically made.",
+        "price": 35.00,
+        "media": [
+            { "type": "image", "src": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1980&auto=format&fit=crop" }
+        ]
+    },
+    {
+        "id": 106,
+        "categoryId": "electronics",
+        "name": "Portable Bluetooth Speaker",
+        "description": "Compact yet powerful portable speaker with a 15-hour battery life and waterproof design.",
+        "price": 89.00,
+        "media": [
+            { "type": "image", "src": "https://images.unsplash.com/photo-1589100376329-1d6a710927da?q=80&w=1974&auto=format&fit=crop" }
+        ]
+    }
+  ]
+}
