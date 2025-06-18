@@ -127,9 +127,9 @@
             document.getElementById('cart-modal').classList.remove('hidden');
         }
 
-        function closeCartModal() {
+        window.closeCartModal = function() {
             document.getElementById('cart-modal').classList.add('hidden');
-        }
+        };
 
         async function loadData() {
             try {
