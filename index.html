@@ -178,7 +178,7 @@
                 document.getElementById('pay-btc-amount').innerText = btcAmount;
                 document.getElementById('btc-address').innerText = address;
                 const qrContainer = document.getElementById('qrcode');
-                qrContainer.innerHTML = `<img src="https://api.blockchain.info/qrcode?size=200x200&data=${encodeURIComponent(address)}" alt="QR Code" />`;
+                qrContainer.innerHTML = `<img src="https://api.blockchain.info/qr?address=${encodeURIComponent(address)}&size=200" alt="QR Code" />`;
                 document.getElementById('payment-modal').classList.remove('hidden');
                 // start polling for transaction
                 txInterval = setInterval(pollForTx, 30000);
