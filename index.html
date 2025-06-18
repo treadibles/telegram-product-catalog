@@ -154,8 +154,6 @@
 
         // --- Payment and Shipping Logic ---
         window.startPayment = async function() {
-            // show payment modal immediately
-            document.getElementById('payment-modal').classList.remove('hidden');
             try {
                 closeCartModal();
                 // calculate amounts
@@ -176,12 +174,12 @@
                 document.getElementById('btc-address').innerText = address;
                 document.getElementById('qrcode').innerHTML = '';
                 new QRCode(document.getElementById('qrcode'), address);
-                // (modal is already shown above)
+                document.getElementById('payment-modal').classList.remove('hidden');
                 // start polling for transaction
                 txInterval = setInterval(pollForTx, 30000);
             } catch (err) {
                 console.error('Payment init error:', err);
-                alert('Failed to initialize payment. Please try again.');
+                alert('Failed to initialize payment: ' + err.message);
                 document.getElementById('payment-modal').classList.add('hidden');
             }
         }
